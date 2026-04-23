@@ -14,7 +14,7 @@ let pets = [
     name: 'Miro',
     breed: 'Bulldog',
     age: 2,
-    discription: 'Friendly and loves to play',
+    description: 'Friendly and loves to play',
     adopted: false
   },
   {
@@ -22,7 +22,7 @@ let pets = [
     name: 'Jao',
     breed: 'dachshund',
     age: 1,
-    discription: 'Cute na way gamit',
+    description: 'Cute na way gamit',
     adopted: false
   }
 ];
