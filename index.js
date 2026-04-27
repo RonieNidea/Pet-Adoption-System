@@ -1,115 +1,124 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
-const port = 3000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Allow large base64 image strings
 
-let pets = [
-  {
-    id: 1,
-    name: 'Miro',
-    breed: 'Bulldog',
-    age: 2,
-    description: 'Friendly and loves to play',
-    adopted: false
-  },
-  {
-    id: 2,
-    name: 'Jao',
-    breed: 'dachshund',
-    age: 1,
-    description: 'Cute na way gamit',
-    adopted: false
-  }
-];
+// In-memory storage
+let pets = [];
 
-// API ENDPOINTS
+/* =========================
+   ROUTES
+========================= */
+
+// Health check
 app.get('/', (req, res) => {
-  res.send('Welcome to the Pets Adoption');
+  res.json({ message: 'Pets Adoption API Running' });
 });
 
-// GET: Retrieve all pets
+// GET all pets
 app.get('/api/pets', (req, res) => {
-  res.status(200).json(pets);
+  res.json(pets);
 });
 
-// GET: Retrieve a specific pet by ID
 app.get('/api/pets/:id', (req, res) => {
-  const pet = pets.find(pet => pet.id === parseInt(req.params.id));
-
+  const pet = pets.find(p => p.id === parseInt(req.params.id));
   if (!pet) {
-    return res.status(404).json({ message: 'Pet not found.' });
+    return res.status(404).json({ message: 'Pet not found' });
   }
-
-  res.status(200).json(pet);
+  res.json(pet);
 });
 
-// POST: Add a new pet
 app.post('/api/pets', (req, res) => {
-  const { name, breed, age, description, adopted } = req.body;
+  const { name, breed, age, description, image } = req.body;
 
   if (!name || !breed || !age || !description) {
-    return res.status(400).json({ message: 'All fields are required.' });
+    return res.status(400).json({ message: 'Missing required fields: name, breed, age, description' });
+  }
+
+  if (isNaN(Number(age)) || Number(age) <= 0) {
+    return res.status(400).json({ message: 'Age must be a positive number' });
+  }
+
+  if (image && !image.startsWith('data:image/')) {
+    return res.status(400).json({ message: 'Image must be a valid base64 string (e.g. data:image/jpeg;base64,...)' });
   }
 
   const newPet = {
-    id: pets.length + 1,
+    id: Date.now(),
     name,
     breed,
-    age,
+    age: Number(age),
     description,
-    adopted: adopted || false
+    image: image || ''
   };
 
   pets.push(newPet);
+
   res.status(201).json({
-    message: 'Pet added successfully!',
-    pet: newPet,
+    message: 'Pet created successfully',
+    pet: newPet
   });
 });
 
-// PUT: Update pet details
-app.put('/api/pets/:id', (req, res) => {
-  const petIndex = pets.findIndex(pet => pet.id === parseInt(req.params.id));
 
-  if (petIndex === -1) {
-    return res.status(404).json({ message: 'Pet not found.' });
+app.put('/api/pets/:id', (req, res) => {
+  const index = pets.findIndex(p => p.id === parseInt(req.params.id));
+
+  if (index === -1) {
+    return res.status(404).json({ message: 'Pet not found' });
   }
 
-  const { name, breed, age, description, adopted } = req.body;
+  const { name, breed, age, description, image } = req.body;
 
-  pets[petIndex] = {
-    ...pets[petIndex],
-    name: name || pets[petIndex].name,
-    breed: breed || pets[petIndex].breed,
-    age: age || pets[petIndex].age,
-    description: description || pets[petIndex].description,
-    adopted: adopted !== undefined ? adopted : pets[petIndex].adopted,
+  if (age !== undefined && (isNaN(Number(age)) || Number(age) <= 0)) {
+    return res.status(400).json({ message: 'Age must be a positive number' });
+  }
+
+  if (image && !image.startsWith('data:image/')) {
+    return res.status(400).json({ message: 'Image must be a valid base64 string (e.g. data:image/jpeg;base64,...)' });
+  }
+
+  const updatedFields = {};
+  if (name) updatedFields.name = name;
+  if (breed) updatedFields.breed = breed;
+  if (age) updatedFields.age = Number(age);
+  if (description) updatedFields.description = description;
+  if (image !== undefined) updatedFields.image = image;
+
+  pets[index] = {
+    ...pets[index],
+    ...updatedFields
   };
 
-  res.status(200).json({
-    message: 'Pet updated successfully!',
-    pet: pets[petIndex],
+  res.json({
+    message: 'Pet updated successfully',
+    pet: pets[index]
   });
 });
 
-// DELETE: Remove a pet by ID
 app.delete('/api/pets/:id', (req, res) => {
-  const petIndex = pets.findIndex(pet => pet.id === parseInt(req.params.id));
+  const exists = pets.some(p => p.id === parseInt(req.params.id));
 
-  if (petIndex === -1) {
-    return res.status(404).json({ message: 'Pet not found.' });
+  if (!exists) {
+    return res.status(404).json({ message: 'Pet not found' });
   }
 
-  pets.splice(petIndex, 1);
-  res.status(200).json({ message: 'Pet removed successfully.' });
+  pets = pets.filter(p => p.id !== parseInt(req.params.id));
+
+  res.json({ message: 'Pet deleted successfully' });
 });
 
-// Start the server
+app.use((err, req, res, next) => {
+  res.status(500).json({
+    message: 'Server error',
+    error: err.message
+  });
+});
+
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`Server running on port ${port}`);
 });
