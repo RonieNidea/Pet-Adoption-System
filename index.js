@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
 
 const app = express();
 const port = 3000;
@@ -8,38 +9,42 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-let pets = [
-  {
-    id: 1,
-    name: 'Miro',
-    breed: 'Bulldog',
-    age: 2,
-    description: 'Friendly and loves to play',
-    adopted: false
+// ✅ Empty array + safe ID system
+let pets = [];
+let currentId = 1;
+
+// ✅ Multer setup (image upload)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
   },
-  {
-    id: 2,
-    name: 'Jao',
-    breed: 'dachshund',
-    age: 1,
-    description: 'Cute na way gamit',
-    adopted: false
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
   }
-];
+});
+
+// ✅ 100MB limit
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
+
+// ✅ Serve uploaded images
+app.use('/uploads', express.static('uploads'));
 
 // API ENDPOINTS
 app.get('/', (req, res) => {
   res.send('Welcome to the Pets Adoption');
 });
 
-// GET: Retrieve all pets
+// GET all pets
 app.get('/api/pets', (req, res) => {
   res.status(200).json(pets);
 });
 
-// GET: Retrieve a specific pet by ID
+// GET pet by ID
 app.get('/api/pets/:id', (req, res) => {
-  const pet = pets.find(pet => pet.id === parseInt(req.params.id));
+  const pet = pets.find(p => p.id === parseInt(req.params.id));
 
   if (!pet) {
     return res.status(404).json({ message: 'Pet not found.' });
@@ -48,8 +53,8 @@ app.get('/api/pets/:id', (req, res) => {
   res.status(200).json(pet);
 });
 
-// POST: Add a new pet
-app.post('/api/pets', (req, res) => {
+// ✅ POST with image upload
+app.post('/api/pets', upload.single('image'), (req, res) => {
   const { name, breed, age, description, adopted } = req.body;
 
   if (!name || !breed || !age || !description) {
@@ -57,24 +62,26 @@ app.post('/api/pets', (req, res) => {
   }
 
   const newPet = {
-    id: pets.length + 1,
+    id: currentId++,
     name,
     breed,
     age,
     description,
-    adopted: adopted || false
+    adopted: adopted || false,
+    image: req.file ? `/uploads/${req.file.filename}` : null
   };
 
   pets.push(newPet);
+
   res.status(201).json({
     message: 'Pet added successfully!',
     pet: newPet,
   });
 });
 
-// PUT: Update pet details
-app.put('/api/pets/:id', (req, res) => {
-  const petIndex = pets.findIndex(pet => pet.id === parseInt(req.params.id));
+// PUT update pet (optional: allow image update)
+app.put('/api/pets/:id', upload.single('image'), (req, res) => {
+  const petIndex = pets.findIndex(p => p.id === parseInt(req.params.id));
 
   if (petIndex === -1) {
     return res.status(404).json({ message: 'Pet not found.' });
@@ -89,6 +96,7 @@ app.put('/api/pets/:id', (req, res) => {
     age: age || pets[petIndex].age,
     description: description || pets[petIndex].description,
     adopted: adopted !== undefined ? adopted : pets[petIndex].adopted,
+    image: req.file ? `/uploads/${req.file.filename}` : pets[petIndex].image
   };
 
   res.status(200).json({
@@ -97,19 +105,20 @@ app.put('/api/pets/:id', (req, res) => {
   });
 });
 
-// DELETE: Remove a pet by ID
+// DELETE pet
 app.delete('/api/pets/:id', (req, res) => {
-  const petIndex = pets.findIndex(pet => pet.id === parseInt(req.params.id));
+  const petIndex = pets.findIndex(p => p.id === parseInt(req.params.id));
 
   if (petIndex === -1) {
     return res.status(404).json({ message: 'Pet not found.' });
   }
 
   pets.splice(petIndex, 1);
+
   res.status(200).json({ message: 'Pet removed successfully.' });
 });
 
-// Start the server
+// Start server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
