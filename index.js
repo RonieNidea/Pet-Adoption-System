@@ -47,7 +47,7 @@ let currentId = 1;
 
 // TEST ROUTE
 app.get('/', (req, res) => {
-  res.send('Pet Adoption API is running perfectly');
+  res.send('WELCOME TO PET ADOPTION');
 });
 
 // GET ALL PETS
@@ -66,7 +66,7 @@ app.get('/api/pets/:id', (req, res) => {
   res.json(pet);
 });
 
-// ADD PET (WITH IMAGE)
+// ADD PET
 app.post('/api/pets', upload.single('image'), (req, res) => {
   try {
     const { name, breed, age, description, adopted } = req.body;
@@ -153,7 +153,7 @@ app.delete('/api/pets/:id', (req, res) => {
   res.json({ message: 'Pet deleted successfully' });
 });
 
-// START SERVER (RENDER SAFE)
+// START SERVER 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
